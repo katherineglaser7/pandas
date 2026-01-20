@@ -2011,6 +2011,28 @@ class TestToDatetimeUnit:
         with pytest.raises(ValueError, match=msg):
             to_datetime([1, 2, bad_val], unit="D")
 
+    def test_to_datetime_unit_string_consistent_error_behavior(self):
+        # GH#31 - Verify that error behavior is consistent when using unit
+        # with strings vs without unit
+        bad_val = "invalid_datetime_string"
+
+        # Error message should be the same with or without unit parameter
+        msg = f"Unknown datetime string format, unable to parse: {bad_val}"
+
+        # Without unit parameter
+        with pytest.raises(ValueError, match=msg):
+            to_datetime([bad_val], errors="raise")
+
+        # With unit parameter - should raise the same error message
+        with pytest.raises(ValueError, match=msg):
+            to_datetime([bad_val], unit="s", errors="raise")
+
+        # With errors='coerce', both should return NaT
+        result_no_unit = to_datetime([bad_val], errors="coerce")
+        result_with_unit = to_datetime([bad_val], unit="s", errors="coerce")
+        assert result_no_unit[0] is NaT
+        assert result_with_unit[0] is NaT
+
     @pytest.mark.parametrize("bad_val", ["foo", 111111111111111])
     def test_to_timestamp_unit_coerce(self, bad_val):
         # coerce we can process
