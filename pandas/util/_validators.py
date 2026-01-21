@@ -480,3 +480,95 @@ def check_dtype_backend(dtype_backend) -> None:
                 f"dtype_backend {dtype_backend} is invalid, only 'numpy_nullable' and "
                 f"'pyarrow' are allowed.",
             )
+
+
+def validate_column_types(df, schema: dict) -> bool:
+    """
+    Validate DataFrame column types against an expected schema.
+
+    This function checks whether the columns in a DataFrame match the expected
+    types specified in the schema dictionary.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The DataFrame to validate.
+    schema : dict
+        A dictionary mapping column names to expected types. Types can be
+        Python types (str, int, float, bool) or numpy/pandas dtype strings.
+
+    Returns
+    -------
+    bool
+        True if all columns match the expected types.
+
+    Raises
+    ------
+    ValueError
+        If any column type does not match the expected type, or if a column
+        specified in the schema is missing from the DataFrame.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"name": ["Alice", "Bob"], "age": [25, 30]})
+    >>> schema = {"name": str, "age": int}
+    >>> validate_column_types(df, schema)
+    True
+    """
+    if not isinstance(schema, dict):
+        raise TypeError("schema must be a dictionary")
+
+    if len(schema) == 0:
+        return True
+
+    missing_columns = []
+    type_mismatches = []
+
+    type_mapping = {
+        str: "object",
+        int: "int64",
+        float: "float64",
+        bool: "bool",
+    }
+
+    for col_name, expected_type in schema.items():
+        if col_name not in df.columns:
+            missing_columns.append(col_name)
+            continue
+
+        actual_dtype = df[col_name].dtype
+
+        if expected_type in type_mapping:
+            expected_dtype_str = type_mapping[expected_type]
+            if str(actual_dtype) != expected_dtype_str:
+                if expected_type == int and str(actual_dtype).startswith("int"):
+                    continue
+                if expected_type == float and str(actual_dtype).startswith("float"):
+                    continue
+                type_mismatches.append(
+                    f"Column '{col_name}': expected {expected_type.__name__}, "
+                    f"got {actual_dtype}"
+                )
+        elif isinstance(expected_type, type):
+            if not np.issubdtype(actual_dtype, expected_type):
+                type_mismatches.append(
+                    f"Column '{col_name}': expected {expected_type.__name__}, "
+                    f"got {actual_dtype}"
+                )
+        elif str(actual_dtype) != str(expected_type):
+            type_mismatches.append(
+                f"Column '{col_name}': expected {expected_type}, "
+                f"got {actual_dtype}"
+            )
+
+    errors = []
+    if missing_columns:
+        errors.append(f"Missing columns: {missing_columns}")
+    if type_mismatches:
+        errors.extend(type_mismatches)
+
+    if errors:
+        raise ValueError("Column type validation failed:\n" + "\n".join(errors))
+
+    return True

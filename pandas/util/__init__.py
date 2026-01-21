@@ -22,8 +22,18 @@ def __getattr__(key: str):
 
         return cache_readonly
 
+    if key == "validate_column_types":
+        from pandas.util._validators import validate_column_types
+
+        return validate_column_types
+
     raise AttributeError(f"module 'pandas.util' has no attribute '{key}'")
 
 
 def __dir__() -> list[str]:
-    return [*list(globals().keys()), "hash_array", "hash_pandas_object"]
+    return [
+        *list(globals().keys()),
+        "hash_array",
+        "hash_pandas_object",
+        "validate_column_types",
+    ]
