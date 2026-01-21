@@ -5860,6 +5860,7 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
         random_state: RandomState | None = None,
         axis: Axis | None = None,
         ignore_index: bool = False,
+        contiguous: bool = False,
     ) -> Self:
         """
         Return a random sample of items from an axis of object.
@@ -5899,6 +5900,9 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
             for given data type. For `Series` this parameter is unused and defaults to `None`.
         ignore_index : bool, default False
             If True, the resulting index will be labeled 0, 1, …, n - 1.
+        contiguous : bool, default False
+            If True, return a contiguous block of items starting from a randomly
+            selected position. Cannot be used with `replace=True` or `weights`.
 
         Returns
         -------
@@ -5923,6 +5927,10 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
         since that would cause results to be biased. E.g. sampling 2 items without replacement
         with weights [100, 1, 1] would yield two last items in 1/2 of cases, instead of 1/102.
         This is similar to specifying `n=4` without replacement on a Series with 3 elements.
+
+        When `contiguous=True`, a single starting position is randomly selected and
+        `n` consecutive items are returned from that position. This is useful for
+        time series data or when you need a continuous slice of data.
 
         Examples
         --------
@@ -5979,6 +5987,13 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
                 num_legs  num_wings  num_specimen_seen
         falcon         2          2                 10
         fish           0          0                  8
+
+        Extract a contiguous block of 2 rows:
+
+        >>> df.sample(n=2, contiguous=True, random_state=1)
+                num_legs  num_wings  num_specimen_seen
+        falcon         2          2                 10
+        dog            4          0                  2
         """  # noqa: E501
         if axis is None:
             axis = 0
@@ -5994,11 +6009,32 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
             assert frac is not None
             size = round(frac * obj_len)
 
-        if weights is not None:
-            weights = sample.preprocess_weights(self, weights, axis)
+        if contiguous:
+            if replace:
+                raise ValueError(
+                    "Cannot use `contiguous=True` with `replace=True`."
+                )
+            if weights is not None:
+                raise ValueError(
+                    "Cannot use `contiguous=True` with `weights`."
+                )
+            if size > obj_len:
+                raise ValueError(
+                    f"Cannot take a contiguous sample of size {size} from an "
+                    f"object with {obj_len} items."
+                )
+            if size == 0:
+                result = self.iloc[0:0].copy()
+            else:
+                max_start = obj_len - size
+                start_idx = rs.integers(0, max_start + 1)
+                result = self.iloc[start_idx : start_idx + size]
+        else:
+            if weights is not None:
+                weights = sample.preprocess_weights(self, weights, axis)
 
-        sampled_indices = sample.sample(obj_len, size, replace, weights, rs)
-        result = self.take(sampled_indices, axis=axis)
+            sampled_indices = sample.sample(obj_len, size, replace, weights, rs)
+            result = self.take(sampled_indices, axis=axis)
 
         if ignore_index:
             result.index = default_index(len(result))
