@@ -6005,6 +6005,105 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
 
         return result
 
+    @final
+    def sample_contiguous(
+        self,
+        n: int = 1,
+        random_state: RandomState | None = None,
+        ignore_index: bool = False,
+    ) -> Self:
+        """
+        Return a random contiguous block of items from an axis of object.
+
+        This method randomly selects a starting position and returns `n`
+        consecutive rows from that position. Unlike :meth:`sample`, which
+        returns randomly selected individual rows, this method ensures the
+        returned rows are contiguous in the original object.
+
+        You can use `random_state` for reproducibility.
+
+        Parameters
+        ----------
+        n : int, default 1
+            Number of consecutive items to return. Must be less than or equal
+            to the length of the object.
+        random_state : int, array-like, BitGenerator, np.random.RandomState, np.random.Generator, optional
+            If int, array-like, or BitGenerator, seed for random number generator.
+            If np.random.RandomState or np.random.Generator, use as given.
+            Default ``None`` results in sampling with the current state of np.random.
+        ignore_index : bool, default False
+            If True, the resulting index will be labeled 0, 1, ..., n - 1.
+
+        Returns
+        -------
+        Series or DataFrame
+            A new object of same type as caller containing `n` consecutive items
+            randomly sampled from the caller object.
+
+        See Also
+        --------
+        DataFrame.sample : Return a random sample of items from an axis of object.
+        Series.sample : Return a random sample of items from a Series.
+
+        Raises
+        ------
+        ValueError
+            If `n` is greater than the length of the object.
+            If `n` is negative.
+
+        Examples
+        --------
+        >>> df = pd.DataFrame(
+        ...     {
+        ...         "num_legs": [2, 4, 8, 0, 2],
+        ...         "num_wings": [2, 0, 0, 0, 2],
+        ...     },
+        ...     index=["falcon", "dog", "spider", "fish", "bird"],
+        ... )
+        >>> df
+                num_legs  num_wings
+        falcon         2          2
+        dog            4          0
+        spider         8          0
+        fish           0          0
+        bird           2          2
+
+        Extract 3 random consecutive elements from the ``DataFrame``:
+        Note that we use `random_state` to ensure the reproducibility of
+        the examples.
+
+        >>> df.sample_contiguous(n=3, random_state=1)
+                num_legs  num_wings
+        dog            4          0
+        spider         8          0
+        fish           0          0
+
+        Using ``ignore_index`` to reset the index:
+
+        >>> df.sample_contiguous(n=2, random_state=1, ignore_index=True)
+           num_legs  num_wings
+        0         4          0
+        1         8          0
+        """
+        if n < 0:
+            raise ValueError(
+                "A negative number of rows requested. Please provide `n` >= 0."
+            )
+        if n % 1 != 0:
+            raise ValueError("Only integers accepted as `n` values")
+
+        obj_len = self.shape[0]
+
+        rs = common.random_state(random_state)
+
+        sampled_indices = sample.sample_contiguous(obj_len, n, rs)
+        result = self.take(sampled_indices, axis=0)
+
+        if ignore_index:
+            result.index = default_index(len(result))
+
+        return result
+
     @overload
     def pipe(
         self,

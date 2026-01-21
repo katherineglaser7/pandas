@@ -161,3 +161,39 @@ def sample(
     return random_state.choice(obj_len, size=size, replace=replace, p=weights).astype(
         np.intp, copy=False
     )
+
+
+def sample_contiguous(
+    obj_len: int,
+    size: int,
+    random_state: np.random.RandomState | np.random.Generator,
+) -> np.ndarray:
+    """
+    Randomly sample a contiguous block of `size` indices starting from a random position.
+
+    Parameters
+    ----------
+    obj_len : int
+        The length of the indices being considered
+    size : int
+        The number of consecutive values to return
+    random_state: np.random.RandomState or np.random.Generator
+        State used for the random sampling
+
+    Returns
+    -------
+    np.ndarray[np.intp]
+        Array of consecutive indices starting from a randomly chosen position
+    """
+    if size > obj_len:
+        raise ValueError(
+            f"Cannot take a contiguous sample of size {size} from an object "
+            f"with only {obj_len} rows."
+        )
+
+    if size <= 0:
+        return np.array([], dtype=np.intp)
+
+    max_start = obj_len - size
+    start_idx = random_state.integers(0, max_start + 1)
+    return np.arange(start_idx, start_idx + size, dtype=np.intp)

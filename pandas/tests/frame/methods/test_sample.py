@@ -391,3 +391,100 @@ class TestSampleDataFrame:
         result = df.sample(3, ignore_index=True)
         expected_index = Index(range(3))
         tm.assert_index_equal(result.index, expected_index, exact=True)
+
+
+class TestSampleContiguous:
+    @pytest.fixture
+    def obj(self, frame_or_series):
+        if frame_or_series is Series:
+            arr = np.random.default_rng(2).standard_normal(10)
+        else:
+            arr = np.random.default_rng(2).standard_normal((10, 10))
+        return frame_or_series(arr, dtype=None)
+
+    def test_sample_contiguous_basic(self, obj):
+        result = obj.sample_contiguous(n=3, random_state=42)
+        assert len(result) == 3
+        indices = list(result.index)
+        original_indices = list(obj.index)
+        start_pos = original_indices.index(indices[0])
+        expected_indices = original_indices[start_pos : start_pos + 3]
+        assert indices == expected_indices
+
+    def test_sample_contiguous_reproducibility(self, obj):
+        result1 = obj.sample_contiguous(n=4, random_state=42)
+        result2 = obj.sample_contiguous(n=4, random_state=42)
+        tm.assert_equal(result1, result2)
+
+    def test_sample_contiguous_different_seeds(self, obj):
+        result1 = obj.sample_contiguous(n=4, random_state=1)
+        result2 = obj.sample_contiguous(n=4, random_state=2)
+        assert not result1.index.equals(result2.index) or result1.index[0] == result2.index[0]
+
+    def test_sample_contiguous_full_length(self, obj):
+        result = obj.sample_contiguous(n=len(obj), random_state=42)
+        tm.assert_equal(result, obj)
+
+    def test_sample_contiguous_single_row(self, obj):
+        result = obj.sample_contiguous(n=1, random_state=42)
+        assert len(result) == 1
+
+    def test_sample_contiguous_zero_rows(self, obj):
+        result = obj.sample_contiguous(n=0, random_state=42)
+        assert len(result) == 0
+
+    def test_sample_contiguous_negative_n_raises(self, obj):
+        with pytest.raises(
+            ValueError,
+            match="A negative number of rows requested. Please provide `n` >= 0",
+        ):
+            obj.sample_contiguous(n=-1)
+
+    def test_sample_contiguous_n_too_large_raises(self, obj):
+        with pytest.raises(
+            ValueError,
+            match="Cannot take a contiguous sample of size",
+        ):
+            obj.sample_contiguous(n=len(obj) + 1)
+
+    def test_sample_contiguous_ignore_index(self, obj):
+        result = obj.sample_contiguous(n=3, random_state=42, ignore_index=True)
+        expected_index = Index(range(3))
+        tm.assert_index_equal(result.index, expected_index, exact=True)
+
+    def test_sample_contiguous_invalid_random_state(self, obj):
+        msg = (
+            "random_state must be an integer, array-like, a BitGenerator, Generator, "
+            "a numpy RandomState, or None"
+        )
+        with pytest.raises(ValueError, match=msg):
+            obj.sample_contiguous(random_state="a_string")
+
+    def test_sample_contiguous_generator(self, frame_or_series):
+        obj = frame_or_series(np.arange(100))
+        rng = np.random.default_rng(2)
+        result1 = obj.sample_contiguous(n=10, random_state=rng)
+        result2 = obj.sample_contiguous(n=10, random_state=rng)
+        assert not result1.index.equals(result2.index)
+
+        result1 = obj.sample_contiguous(n=10, random_state=np.random.default_rng(11))
+        result2 = obj.sample_contiguous(n=10, random_state=np.random.default_rng(11))
+        tm.assert_equal(result1, result2)
+
+
+class TestSampleContiguousDataFrame:
+    def test_sample_contiguous_preserves_columns(self):
+        df = DataFrame(
+            {"col1": range(10, 20), "col2": range(20, 30), "colString": ["a"] * 10}
+        )
+        result = df.sample_contiguous(n=3, random_state=42)
+        assert list(result.columns) == list(df.columns)
+
+    def test_sample_contiguous_is_copy(self):
+        df = DataFrame(
+            np.random.default_rng(2).standard_normal((10, 3)), columns=["a", "b", "c"]
+        )
+        df2 = df.sample_contiguous(3)
+
+        with tm.assert_produces_warning(None):
+            df2["d"] = 1
