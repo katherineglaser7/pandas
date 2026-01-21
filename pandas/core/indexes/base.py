@@ -6889,6 +6889,18 @@ class Index(IndexOpsMixin, PandasObject):
         if is_numeric_dtype(self.dtype):
             return self._maybe_cast_indexer(label)
 
+        # Handle PyArrow-backed timestamp indexes with string labels
+        if (
+            isinstance(label, str)
+            and isinstance(self._values, ArrowExtensionArray)
+            and self.dtype.kind == "M"
+        ):
+            import pyarrow as pa
+
+            pa_type = self._values._pa_array.type
+            if pa.types.is_timestamp(pa_type):
+                return Timestamp(label)
+
         # reject them, if index does not contain label
         if (is_float(label) or is_integer(label)) and label not in self:
             self._raise_invalid_indexer("slice", label)
