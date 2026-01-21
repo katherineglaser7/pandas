@@ -480,3 +480,103 @@ def check_dtype_backend(dtype_backend) -> None:
                 f"dtype_backend {dtype_backend} is invalid, only 'numpy_nullable' and "
                 f"'pyarrow' are allowed.",
             )
+
+
+def validate_column_types(df, schema: dict[str, type]) -> bool:
+    """
+    Validate that DataFrame column types match an expected schema.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The DataFrame to validate.
+    schema : dict[str, type]
+        A dictionary mapping column names to expected Python types.
+        For example: {"name": str, "age": int, "score": float}
+
+    Returns
+    -------
+    bool
+        True if all columns match the expected types.
+
+    Raises
+    ------
+    ValueError
+        If any column type does not match the expected type, or if
+        a column specified in the schema is missing from the DataFrame.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"name": ["Alice", "Bob"], "age": [25, 30]})
+    >>> schema = {"name": str, "age": int}
+    >>> validate_column_types(df, schema)
+    True
+    """
+    # Import here to avoid circular imports
+    from pandas import DataFrame
+
+    if not isinstance(df, DataFrame):
+        raise TypeError(
+            f"Expected a DataFrame, got {type(df).__name__}"
+        )
+
+    if not isinstance(schema, dict):
+        raise TypeError(
+            f"Expected schema to be a dict, got {type(schema).__name__}"
+        )
+
+    # Handle empty DataFrame
+    if df.empty and len(schema) > 0:
+        # Still validate that columns exist even if DataFrame is empty
+        pass
+
+    # Check for missing columns
+    missing_columns = set(schema.keys()) - set(df.columns)
+    if missing_columns:
+        raise ValueError(
+            f"Missing columns in DataFrame: {sorted(missing_columns)}"
+        )
+
+    # Map Python types to pandas/numpy dtype kinds
+    type_mapping = {
+        int: ("i", "u"),  # signed and unsigned integers
+        float: ("f",),  # floating point
+        bool: ("b",),  # boolean
+        str: ("O", "U", "S"),  # object, unicode, byte string
+        object: ("O",),  # object
+    }
+
+    mismatches = []
+    for column, expected_type in schema.items():
+        actual_dtype = df[column].dtype
+
+        # Handle nullable integer types (Int64, etc.) and other extension types
+        if hasattr(actual_dtype, "numpy_dtype"):
+            actual_kind = actual_dtype.numpy_dtype.kind
+        else:
+            actual_kind = actual_dtype.kind
+
+        expected_kinds = type_mapping.get(expected_type)
+
+        if expected_kinds is None:
+            # For types not in mapping, try to check if dtype name contains type name
+            type_name = expected_type.__name__.lower()
+            dtype_name = str(actual_dtype).lower()
+            if type_name not in dtype_name and dtype_name not in type_name:
+                mismatches.append(
+                    f"Column '{column}': expected {expected_type.__name__}, "
+                    f"got {actual_dtype}"
+                )
+        elif actual_kind not in expected_kinds:
+            mismatches.append(
+                f"Column '{column}': expected {expected_type.__name__}, "
+                f"got {actual_dtype}"
+            )
+
+    if mismatches:
+        raise ValueError(
+            "Column type validation failed:\n" + "\n".join(mismatches)
+        )
+
+    return True
