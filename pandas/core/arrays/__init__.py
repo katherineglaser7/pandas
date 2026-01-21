@@ -20,6 +20,7 @@ from pandas.core.arrays.sparse import SparseArray
 from pandas.core.arrays.string_ import StringArray
 from pandas.core.arrays.string_arrow import ArrowStringArray
 from pandas.core.arrays.timedeltas import TimedeltaArray
+from pandas.core.arrays.uuid import UUIDArray
 
 __all__ = [
     "ArrowExtensionArray",
@@ -39,5 +40,6 @@ __all__ = [
     "SparseArray",
     "StringArray",
     "TimedeltaArray",
+    "UUIDArray",
     "period_array",
 ]

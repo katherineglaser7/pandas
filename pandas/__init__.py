@@ -62,6 +62,7 @@ from pandas.core.api import (
     DatetimeTZDtype,
     StringDtype,
     BooleanDtype,
+    UUIDDtype,
     # missing
     NA,
     isna,
@@ -279,6 +280,7 @@ __all__ = [
     "UInt16Dtype",
     "UInt32Dtype",
     "UInt64Dtype",
+    "UUIDDtype",
     "api",
     "array",
     "arrays",

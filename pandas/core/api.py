@@ -41,6 +41,7 @@ from pandas.core.arrays.integer import (
     UInt64Dtype,
 )
 from pandas.core.arrays.string_ import StringDtype
+from pandas.core.arrays.uuid import UUIDDtype
 from pandas.core.construction import array  # noqa: ICN001
 from pandas.core.flags import Flags
 from pandas.core.groupby import (
@@ -119,6 +120,7 @@ __all__ = [
     "UInt16Dtype",
     "UInt32Dtype",
     "UInt64Dtype",
+    "UUIDDtype",
     "array",
     "bdate_range",
     "date_range",
